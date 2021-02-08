@@ -1,14 +1,11 @@
-Package: Astec
-Type: Package
-Title: Astec
-Version: 1.0.0
-Date: 2021-02-08
-Author: Franck Jabot
-Maintainer: Franck Jabot <franck.jabot@inrae.fr>
-URL: http://astec.r-forge.r-project.org/
-Depends: R (>= 2.14.0)
-Imports:  pls, mnormt, MASS, parallel, lhs
-Description: The package Astec.
-License: GPL-3
-LazyLoad: yes
-SVN-Revision: $Rev: 1 $
+Package: metacosimulator
+Version: 0.1
+License: GPL 3
+Description: metacosimulator
+Title: TODO
+Author: Franck
+Maintainer: Franck Jabot <franck.jabot@irstea.fr>
+Imports: Rcpp (>= 0.11.0)
+LinkingTo: Rcpp, RcppGSL
+
+

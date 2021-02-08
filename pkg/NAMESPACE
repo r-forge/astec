@@ -1,3 +1,4 @@
-#exportPattern("^[[:alpha:]]+")
-export(test)
-import(pls, mnormt, MASS, parallel, lhs)
+useDynLib(metacosimulator)
+importFrom(Rcpp, evalCpp)
+export(Msim)
+
