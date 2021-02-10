@@ -1,4 +1,0 @@
-useDynLib(metacosimulator)
-importFrom(Rcpp, evalCpp)
-export(Msim)
-
