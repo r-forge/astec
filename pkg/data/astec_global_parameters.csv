@@ -1,0 +1,6 @@
+n_trophic_group,3
+deltaT_day,1
+n_step_dynamics,10
+n_carnivore,1
+n_herbivore,1
+n_detritivore,1
