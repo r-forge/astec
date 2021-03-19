@@ -1,14 +1,13 @@
-Package: Astec
+Package: astec
 Type: Package
-Title: Astec
-Version: 1.0.0
-Date: 2021-02-08
-Author: Franck Jabot
-Maintainer: Franck Jabot <franck.jabot@inrae.fr>
-URL: http://astec.r-forge.r-project.org/
-Depends: R (>= 2.14.0)
-Imports:  pls, mnormt, MASS, parallel, lhs
-Description: The package Astec.
-License: GPL-3
-LazyLoad: yes
-SVN-Revision: $Rev: 1 $
+Title: What the Package Does (Title Case)
+Version: 0.1.0
+Author: Who wrote it
+Maintainer: The package maintainer <yourself@somewhere.net>
+Description: More about what it does (maybe more than one line)
+    Use four spaces when indenting paragraphs within the Description.
+License: What license is it under?
+Encoding: UTF-8
+LazyData: true
+Imports: Rcpp (>= 1.0.5)
+LinkingTo: Rcpp
