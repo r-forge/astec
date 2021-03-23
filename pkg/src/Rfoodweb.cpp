@@ -77,12 +77,12 @@ void animal_natural_mortality_matrix(double **animal_density_matrix, double **bo
  }
 }
 
-void animal_reproduction(double *animal_density, double *animal_newdensity, double *animal_bodymass_average, int *translation_juvenile_mass, double *reproduction_parameters, int n_mass, double deltaT){
+void animal_reproduction(double *animal_density, double *animal_newdensity, double *animal_bodymass_average, double *juvenile_mass, int *translation_juvenile_mass, double *reproduction_parameters, int n_mass, double deltaT){
  for (int i=0;i<n_mass;i++){
   animal_newdensity[i]=0.0;
  }
  for (int i=0;i<n_mass;i++){
-    double juv_mass=animal_density[i]*reproduction_parameters[0]*exp(reproduction_parameters[1]*log(animal_bodymass_average[i]))*deltaT;
+    double juv_mass=animal_density[i]*reproduction_parameters[0]*exp(reproduction_parameters[1]*log(animal_bodymass_average[i]))*deltaT*juvenile_mass[i];
     animal_newdensity[(translation_juvenile_mass[i])]+=(juv_mass/animal_bodymass_average[(translation_juvenile_mass[i])]);
     animal_density[i]-=(juv_mass/animal_bodymass_average[i]);
  }
@@ -91,9 +91,9 @@ void animal_reproduction(double *animal_density, double *animal_newdensity, doub
  }
 }
 
-void animal_reproduction_matrix(double **animal_density_matrix, double **animal_newdensity_matrix, double **animal_bodymass_average_matrix, int **juvenile_mass_matrix, double **reproduction_parameters_matrix, int *n_mass_list, double deltaT, int n_trophic_group){
+void animal_reproduction_matrix(double **animal_density_matrix, double **animal_newdensity_matrix, double **animal_bodymass_average_matrix, double **juvenile_mass_matrix, int **translation_juvenile_mass_matrix, double **reproduction_parameters_matrix, int *n_mass_list, double deltaT, int n_trophic_group){
  for (int i=0;i<n_trophic_group;i++){
-  animal_reproduction(animal_density_matrix[i],animal_newdensity_matrix[i],animal_bodymass_average_matrix[i],juvenile_mass_matrix[i],reproduction_parameters_matrix[i],n_mass_list[i],deltaT);
+  animal_reproduction(animal_density_matrix[i],animal_newdensity_matrix[i],animal_bodymass_average_matrix[i],juvenile_mass_matrix[i],translation_juvenile_mass_matrix[i],reproduction_parameters_matrix[i],n_mass_list[i],deltaT);
  }
 }
 
@@ -818,7 +818,7 @@ List foodweb(List foodweb_inputs){
   //natural mortality
   animal_natural_mortality_matrix(animal_newdensity_matrix,animal_bodymass_average_matrix,carrion_matrix,n_mass_list,mortality_parameters,deltaT,n_trophic_group);
   //reproduction
-  animal_reproduction_matrix(animal_newdensity_matrix,animal_density_matrix,animal_bodymass_average_matrix,translation_juvenile,reproduction_parameters,n_mass_list,deltaT,n_trophic_group);
+  animal_reproduction_matrix(animal_newdensity_matrix,animal_density_matrix,animal_bodymass_average_matrix,juvenile_mass,translation_juvenile,reproduction_parameters,n_mass_list,deltaT,n_trophic_group);
   //update of the detritus
   collect_detritus(detritus,waste_matrix,translation_waste,carrion_matrix,translation_carrion,n_trophic_group,n_mass_list);
   detritus[translation_plant_litter]+=plant_biomass[0]*plant_senescence_rate; // add plant litter
