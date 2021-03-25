@@ -531,7 +531,7 @@ List foodweb(List foodweb_inputs){
   }
  }
 
- //Rcerr <<"block 8"<<"\n";
+ Rcerr <<"block 8"<<"\n";
 
  double **animal_density_matrix;
  animal_density_matrix=new double *[n_trophic_group];
@@ -596,7 +596,7 @@ List foodweb(List foodweb_inputs){
     detritus_mass[i]=dm[i];
  }
 
- //Rcerr <<"block 11"<<"\n";
+ Rcerr <<"block 11"<<"\n";
 
  NumericVector da=foodweb_inputs["detritus_amount"];
  checktest= (da.size()!=n_detritus);
@@ -826,7 +826,7 @@ List foodweb(List foodweb_inputs){
  }
 
 
- //Rcerr <<"block 16"<<"\n";
+ Rcerr <<"block 16"<<"\n";
 
  // convert to List of NumericVector for output (to authorize vectors of different lengths)
  NumericVector ad(n_mass_list[0]);
