@@ -5,39 +5,3 @@ foodweb <- function(foodweb_inputs) {
     .Call(`_astec_foodweb`, foodweb_inputs)
 }
 
-convolve_rcpp <- function(a, b) {
-    .Call(`_astec_convolve_rcpp`, a, b)
-}
-
-make_average_logbodymass <- function(a) {
-    .Call(`_astec_make_average_logbodymass`, a)
-}
-
-make_average_logbodymass_within <- function(a) {
-    .Call(`_astec_make_average_logbodymass_within`, a)
-}
-
-make_average_logbodymass_matrix <- function(a) {
-    .Call(`_astec_make_average_logbodymass_matrix`, a)
-}
-
-make_average_logbodymass_matrix3 <- function(a) {
-    .Call(`_astec_make_average_logbodymass_matrix3`, a)
-}
-
-make_average_logbodymass_matrix_void <- function(a, av) {
-    invisible(.Call(`_astec_make_average_logbodymass_matrix_void`, a, av))
-}
-
-make_average_logbodymass_matrix_void2 <- function(a, av) {
-    invisible(.Call(`_astec_make_average_logbodymass_matrix_void2`, a, av))
-}
-
-multiply_void <- function(a, k) {
-    invisible(.Call(`_astec_multiply_void`, a, k))
-}
-
-rcpp_hello <- function() {
-    .Call(`_astec_rcpp_hello`)
-}
-
