@@ -353,7 +353,7 @@ List foodweb(List foodweb_inputs){
  double deltaT;
  NumericVector glob_param=foodweb_inputs["global_parameters"];
 
- bool checktest= (glob_param.size()!=6);
+ bool checktest= (glob_param.size()!=7);
  if (checktest){
   List foodweb_outputs = List::create(Named("error") = "invalid global parameters input");
   return foodweb_outputs;
@@ -362,12 +362,13 @@ List foodweb(List foodweb_inputs){
 
  n_trophic_group=int(glob_param[0]);
  deltaT=glob_param[1];
- deltaT/=365.0; // change of unit: day -> year
- int n_step_dynamics, n_carnivore,n_herbivore,n_detritivore;
+ //deltaT/=365.0; // change of unit: day -> year - not anymore, deltaT expressed in days.
+ int n_step_dynamics, n_carnivore,n_herbivore,n_detritivore,n_step_output; // add of an input number n_step_output
  n_step_dynamics=int(glob_param[2]);
  n_carnivore=int(glob_param[3]);
  n_herbivore=int(glob_param[4]);
  n_detritivore=int(glob_param[5]);
+ n_step_output=int(glob_param[6]);
 
  //Rcerr <<"block 1"<<"\n";
 
@@ -481,6 +482,8 @@ List foodweb(List foodweb_inputs){
     animal_bodymass_average_matrix[i][j]=exp(animal_logbodymass_matrix[i][j]); // NB: this will be corrected by the function make_average_logbodymass_matrix below if n_mass_list[i]>1
   }
  }
+
+ make_average_logbodymass_matrix(animal_logbodymass_matrix,animal_bodymass_average_matrix,n_mass_list,n_trophic_group);
 
  //Rcerr <<"block 7"<<"\n";
 
@@ -635,7 +638,8 @@ List foodweb(List foodweb_inputs){
 
  //Rcerr <<"block 13"<<"\n";
 
- double **carrion_mass;
+ // carrion_mass replaced by bodymass_average
+ /*double **carrion_mass;
  carrion_mass= new double*[n_trophic_group];
  List cm=foodweb_inputs["carrion_mass"];
  checktest= (cm.size()!=n_trophic_group);
@@ -655,7 +659,7 @@ List foodweb(List foodweb_inputs){
     carrion_mass[i][j]=cm1[j];
   }
  }
-
+ */
  //Rcerr <<"block 14"<<"\n";
 
  double *plant_biomass;
@@ -690,7 +694,7 @@ List foodweb(List foodweb_inputs){
   for (int j=0;j<n_mass_list[i];j++){
     translation_juvenile[i][j]=spot(juvenile_mass[i][j],animal_logbodymass_matrix[i],n_mass_list[i]);
     translation_waste[i][j]=spot(waste_mass[i][j],detritus_mass,n_detritus);
-    translation_carrion[i][j]=spot(carrion_mass[i][j],detritus_mass,n_detritus);
+    translation_carrion[i][j]=spot(animal_bodymass_average_matrix[i][j],detritus_mass,n_detritus); // carrion_mass replaced by bodymass_average
   }
  }
 
@@ -780,7 +784,6 @@ List foodweb(List foodweb_inputs){
  }
 
 
- make_average_logbodymass_matrix(animal_logbodymass_matrix,animal_bodymass_average_matrix,n_mass_list,n_trophic_group);
  compute_attack_rate(attack_rate_matrix,animal_bodymass_average_matrix,predation_parameters,n_trophic_group,n_carnivore,n_mass_list,pos_carnivore,temp);
  compute_handling_time(handling_time_matrix,animal_bodymass_average_matrix,predation_parameters,n_trophic_group,n_carnivore,n_mass_list,pos_carnivore,temp);
  compute_herbivory_rate(herbivory_rate_matrix,animal_bodymass_average_matrix,pos_herbivore,herbivory_parameters,n_herbivore,n_mass_list,temp);
@@ -791,7 +794,24 @@ List foodweb(List foodweb_inputs){
  //FOOD WEB DYNAMICS
  //predation matrix F_ij
 
+ int tot_output=n_step_dynamics/n_step_output;
 
+ // output - convert to List of NumericMatrix for output (to authorize matrices of different lengths)
+ NumericMatrix ad(n_mass_list[0],tot_output);
+ for (int i=0;i<n_mass_list[0];i++){
+    ad(i,0)=animal_density_matrix[0][i];
+ }
+ List list_animal_density= List::create(ad);
+ for (int j=1;j<n_trophic_group;j++){
+    NumericMatrix ad2(n_mass_list[j],tot_output);
+    for (int i=0;i<n_mass_list[j];i++){
+     ad2(i,0)=animal_density_matrix[j][i];
+    }
+    list_animal_density.push_back(ad2);
+ }
+ NumericMatrix det(n_detritus,tot_output);
+
+ int i_output=0;
  for (int istep=0;istep<n_step_dynamics;istep++){
   // put waste and carrion to zero
   nullify(waste_matrix,n_trophic_group,n_mass_list);
@@ -823,24 +843,24 @@ List foodweb(List foodweb_inputs){
   collect_detritus(detritus,waste_matrix,translation_waste,carrion_matrix,translation_carrion,n_trophic_group,n_mass_list);
   detritus[translation_plant_litter]+=plant_biomass[0]*plant_senescence_rate; // add plant litter
 
+  if (((istep+1)%n_step_output)==0){
+   //OUTPUT
+   for (int j=0;j<n_trophic_group;j++){
+    for (int i=0;i<n_mass_list[j];i++){
+     list_animal_density[j](i,i_output)=animal_density_matrix[j][i];
+    }
+   }
+   for (int i=0;i<n_detritus;i++){
+    det(i,i_output)=detritus[i];
+   }
+   i_output++;
+  }
+
  }
 
 
  Rcerr <<"block 16"<<"\n";
 
- // convert to List of NumericVector for output (to authorize vectors of different lengths)
- NumericVector ad(n_mass_list[0]);
- for (int i=0;i<n_mass_list[0];i++){
-    ad(i)=animal_density_matrix[0][i];
- }
- List list_animal_density= List::create(ad);
- for (int j=1;j<n_trophic_group;j++){
-    NumericVector ad2(n_mass_list[j]);
-    for (int i=0;i<n_mass_list[j];i++){
-     ad2(i)=animal_density_matrix[j][i];
-    }
-    list_animal_density.push_back(ad2);
- }
 
  NumericMatrix matrix_attack_rate(lines_predation_matrix,cols_predation_matrix);
  for (int i=0;i<lines_predation_matrix;i++){
@@ -849,7 +869,7 @@ List foodweb(List foodweb_inputs){
   }
  }
 
- List foodweb_outputs = List::create(Named("animal_density") = list_animal_density , _["attack_rate"] = matrix_attack_rate);
+ List foodweb_outputs = List::create(Named("animal_density_timeseries") = list_animal_density , _["detritus_timeseries"]=det, _["attack_rate"] = matrix_attack_rate);
  return foodweb_outputs;
 }
 
