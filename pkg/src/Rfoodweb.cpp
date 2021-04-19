@@ -798,15 +798,15 @@ List foodweb(List foodweb_inputs){
 
  // output - convert to List of NumericMatrix for output (to authorize matrices of different lengths)
  NumericMatrix ad(n_mass_list[0],tot_output);
- for (int i=0;i<n_mass_list[0];i++){
+ /*for (int i=0;i<n_mass_list[0];i++){
     ad(i,0)=animal_density_matrix[0][i];
- }
+ }*/
  List list_animal_density= List::create(ad);
  for (int j=1;j<n_trophic_group;j++){
     NumericMatrix ad2(n_mass_list[j],tot_output);
-    for (int i=0;i<n_mass_list[j];i++){
+    /*for (int i=0;i<n_mass_list[j];i++){
      ad2(i,0)=animal_density_matrix[j][i];
-    }
+    }*/
     list_animal_density.push_back(ad2);
  }
  NumericMatrix det(n_detritus,tot_output);
@@ -846,9 +846,11 @@ List foodweb(List foodweb_inputs){
   if (((istep+1)%n_step_output)==0){
    //OUTPUT
    for (int j=0;j<n_trophic_group;j++){
+    NumericMatrix ad=list_animal_density[j];
     for (int i=0;i<n_mass_list[j];i++){
-     list_animal_density[j](i,i_output)=animal_density_matrix[j][i];
+     ad(i,i_output)=animal_density_matrix[j][i];
     }
+    list_animal_density[j]=ad;
    }
    for (int i=0;i<n_detritus;i++){
     det(i,i_output)=detritus[i];
