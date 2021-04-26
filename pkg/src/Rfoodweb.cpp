@@ -232,10 +232,22 @@ void compute_herbivory_K(double **herbivory_K_matrix,double **animal_bodymass_av
  for (int i=0;i<n_herbivore;i++){
   p[0]=pos_herbivore[i];
   for (int j=0;j<n_mass_list[(p[0])];j++){
-   herbivory_K_matrix[i][j]=herbivory_parameters[i][2]*animal_bodymass_average_matrix[(p[0])][j];
+   herbivory_K_matrix[i][j]=herbivory_parameters[i][2]*exp(herbivory_parameters[i][3]*log(animal_bodymass_average_matrix[(p[0])][j]));
   }
  }
 }
+
+void compute_detritivory_rates(double **detritivory_attack_rate, double **detritivory_handling_time,double **animal_bodymass_average_matrix, int *pos_detritivore, double **detritivory_parameters,int n_detritivore, int *n_mass_list, int *p){
+ for (int i=0;i<n_detritivore;i++){
+  p[0]=pos_detritivore[i];
+  for (int j=0;j<n_mass_list[(p[0])];j++){
+   detritivory_attack_rate[i][j]=detritivory_parameters[i][0]*exp(detritivory_parameters[i][1]*log(animal_bodymass_average_matrix[(p[0])][j]));
+   detritivory_handling_time[i][j]=detritivory_parameters[i][2]*exp(detritivory_parameters[i][3]*log(animal_bodymass_average_matrix[(p[0])][j]));
+  }
+ }
+
+}
+
 
 void herbivory_with_waste(double *plant_biomass, double **animal_density_matrix, int *pos_herbivore, double **herbivory_rate_matrix, double **herbivory_K_matrix, double **food_assimilated_matrix, double **animal_growth_parameters, double deltaT, int n_herbivore, int *n_mass_list, double **waste_matrix, double *temp, double *consumed_biomass, int *p){
  temp[0]=0.0;
@@ -258,29 +270,14 @@ void herbivory_with_waste(double *plant_biomass, double **animal_density_matrix,
  }
 }
 
-void compute_detritivory_rate_matrix3d(double ***detritivory_rate_matrix3d,double **detritivory_rate_matrix, double **detritivory_parameters, double **animal_bodymass_average_matrix, double *detritus, double *detritus_mass, int n_detritus, int n_detritivore, int *pos_detritivore, int *n_mass_list, double *temp, int *p){
- for (int i=0;i<n_detritivore;i++){
-  p[0]=pos_detritivore[i];
-  for (int j=0;j<n_mass_list[(p[0])];j++){
-   temp[0]=0.0;
-   for (int k=0;k<n_detritus;k++){
-    detritivory_rate_matrix3d[i][j][k]=detritus[k]*detritivory_parameters[i][3]*animal_bodymass_average_matrix[(p[0])][j]*exp(-pow((log(detritus_mass[k]/animal_bodymass_average_matrix[(p[0])][j])-detritivory_parameters[i][4])/detritivory_parameters[i][5],2)); // NB : detritivory has 6 parameters
-    temp[0]+=detritivory_rate_matrix3d[i][j][k];
-   }
-   for (int k=0;k<n_detritus;k++){
-    detritivory_rate_matrix3d[i][j][k]*=(detritivory_rate_matrix[i][j]/temp[0]);
-   }
-  }
- }
-}
 
-void detritivory_with_waste(double *detritus, double **animal_density_matrix,int *pos_detritivore, double ***detritivory_rate_matrix3d, double **detritivory_K_matrix, double ***food_assimilated_matrix3d, double **animal_growth_parameters, double deltaT, int n_detritivore, int n_detritus, int *n_mass_list, double **waste_matrix, double *temp, double *consumed_biomass, int *p){
+void detritivory_with_waste(double *detritus, double **animal_density_matrix,int *pos_detritivore, double **detritivory_attack_rate,double **detritivory_handling_time, double ***food_assimilated_matrix3d, double **animal_growth_parameters, double deltaT, int n_detritivore, int n_detritus, int *n_mass_list, double **waste_matrix, double *temp, double *consumed_biomass, int *p){
  for (int k=0;k<n_detritus;k++){
   temp[0]=0;
   for (int i=0;i<n_detritivore;i++){ // computation of F_ik
    p[0]=pos_detritivore[i];
    for (int j=0;j<n_mass_list[(p[0])];j++){
-    food_assimilated_matrix3d[i][j][k]=detritivory_rate_matrix3d[i][j][k]*animal_density_matrix[(p[0])][j]/(detritus[k]+(detritivory_K_matrix[i][j]*animal_density_matrix[(p[0])][j]));
+    food_assimilated_matrix3d[i][j][k]=detritivory_attack_rate[i][j]*animal_density_matrix[(p[0])][j]*detritus[k]/(1+detritus[k]*detritivory_attack_rate[i][j]*detritivory_handling_time[i][j]);
     temp[0]+=food_assimilated_matrix3d[i][j][k]; // computation of sum_i F_ik
    }
   }
@@ -390,7 +387,7 @@ List foodweb(List foodweb_inputs){
 
  //Rcerr <<"block 2"<<"\n";
 
- int n_param=26;
+ int n_param=25;
  double **trophic_group_parameters;
  trophic_group_parameters= new double*[n_param];
  NumericMatrix tgp=foodweb_inputs["trophic_group_parameters"];
@@ -520,15 +517,15 @@ List foodweb(List foodweb_inputs){
             }
             t1++;
             break;
-   case 1 : herbivory_parameters[t2]=new double[3];
-            for (int j=0;j<3;j++){
+   case 1 : herbivory_parameters[t2]=new double[4];
+            for (int j=0;j<4;j++){
              herbivory_parameters[t2][j]=trophic_group_parameters[(17+j)][i];
             }
             t2++;
             break;
-    default : detritivory_parameters[t3]=new double[6];
-              for (int j=0;j<6;j++){
-               detritivory_parameters[t3][j]=trophic_group_parameters[(20+j)][i];
+    default : detritivory_parameters[t3]=new double[4];
+              for (int j=0;j<4;j++){
+               detritivory_parameters[t3][j]=trophic_group_parameters[(21+j)][i];
               }
               t3++;
   }
@@ -762,24 +759,24 @@ List foodweb(List foodweb_inputs){
     herbivory_K_matrix[i]=new double[(n_mass_list[(pos_herbivore[i])])];
  }
 
- double **detritivory_rate_matrix;
- detritivory_rate_matrix=new double*[n_detritivore];
- double **detritivory_K_matrix;
- detritivory_K_matrix=new double*[n_detritivore];
+ double **detritivory_attack_rate;
+ detritivory_attack_rate=new double*[n_detritivore];
+ double **detritivory_handling_time;
+ detritivory_handling_time=new double*[n_detritivore];
  for (int i=0;i<n_detritivore;i++){
-    detritivory_rate_matrix[i]=new double[(n_mass_list[(pos_detritivore[i])])];
-    detritivory_K_matrix[i]=new double[(n_mass_list[(pos_detritivore[i])])];
+    detritivory_attack_rate[i]=new double[(n_mass_list[(pos_detritivore[i])])];
+    detritivory_handling_time[i]=new double[(n_mass_list[(pos_detritivore[i])])];
  }
  double ***food_assimilated_matrix3d; // A COMPLETER
  food_assimilated_matrix3d=new double **[n_detritivore];
- double ***detritivory_rate_matrix3d; // A COMPLETER
- detritivory_rate_matrix3d=new double **[n_detritivore];
+ //double ***detritivory_rate_matrix3d; // A COMPLETER
+ //detritivory_rate_matrix3d=new double **[n_detritivore];
  for (int i=0;i<n_detritivore;i++){
   food_assimilated_matrix3d[i]=new double*[(n_mass_list[(pos_detritivore[i])])];
-  detritivory_rate_matrix3d[i]=new double*[(n_mass_list[(pos_detritivore[i])])];
+  //detritivory_rate_matrix3d[i]=new double*[(n_mass_list[(pos_detritivore[i])])];
   for (int j=0;j<(n_mass_list[(pos_detritivore[i])]);j++){
    food_assimilated_matrix3d[i][j]=new double[n_detritus];
-   detritivory_rate_matrix3d[i][j]=new double[n_detritus];
+   //detritivory_rate_matrix3d[i][j]=new double[n_detritus];
   }
  }
 
@@ -788,8 +785,7 @@ List foodweb(List foodweb_inputs){
  compute_handling_time(handling_time_matrix,animal_bodymass_average_matrix,predation_parameters,n_trophic_group,n_carnivore,n_mass_list,pos_carnivore,temp);
  compute_herbivory_rate(herbivory_rate_matrix,animal_bodymass_average_matrix,pos_herbivore,herbivory_parameters,n_herbivore,n_mass_list,temp);
  compute_herbivory_K(herbivory_K_matrix,animal_bodymass_average_matrix,pos_herbivore,herbivory_parameters,n_herbivore,n_mass_list,temp);
- compute_herbivory_rate(detritivory_rate_matrix,animal_bodymass_average_matrix,pos_detritivore,detritivory_parameters,n_detritivore,n_mass_list,temp);
- compute_herbivory_K(detritivory_K_matrix,animal_bodymass_average_matrix,pos_detritivore,detritivory_parameters,n_detritivore,n_mass_list,temp);
+ compute_detritivory_rates(detritivory_attack_rate,detritivory_handling_time,animal_bodymass_average_matrix,pos_detritivore,detritivory_parameters,n_detritivore,n_mass_list,temp);
 
  //FOOD WEB DYNAMICS
  //predation matrix F_ij
@@ -824,8 +820,8 @@ List foodweb(List foodweb_inputs){
   herbivory_with_waste(plant_biomass,animal_density_matrix,pos_herbivore,herbivory_rate_matrix,herbivory_K_matrix,food_assimilated_matrix,animal_growth_parameters,deltaT,n_herbivore,n_mass_list,waste_matrix,temp3,temp2,temp);
 
   //detritivory and waste computation
-  compute_detritivory_rate_matrix3d(detritivory_rate_matrix3d,detritivory_rate_matrix,detritivory_parameters,animal_bodymass_average_matrix,detritus,detritus_mass,n_detritus,n_detritivore,pos_detritivore,n_mass_list,temp2,temp);
-  detritivory_with_waste(detritus,animal_density_matrix,pos_detritivore,detritivory_rate_matrix3d,detritivory_K_matrix,food_assimilated_matrix3d,animal_growth_parameters,deltaT,n_detritivore,n_detritus,n_mass_list,waste_matrix,temp3,temp2,temp);
+  //compute_detritivory_rate_matrix3d(detritivory_rate_matrix3d,detritivory_rate_matrix,detritivory_parameters,animal_bodymass_average_matrix,detritus,detritus_mass,n_detritus,n_detritivore,pos_detritivore,n_mass_list,temp2,temp);
+  detritivory_with_waste(detritus,animal_density_matrix,pos_detritivore,detritivory_attack_rate,detritivory_handling_time,food_assimilated_matrix3d,animal_growth_parameters,deltaT,n_detritivore,n_detritus,n_mass_list,waste_matrix,temp3,temp2,temp);
   compile_detritivore_food_eaten(food_assimilated_matrix,food_assimilated_matrix3d,n_detritivore,n_detritus,pos_detritivore,n_mass_list,temp);
 
   //computation of predation matrix F_ij
@@ -1024,5 +1020,21 @@ void read_trophic_group(std::ifstream &read_param, int n_trophic_group, char **n
   std::getline(read_param,Text);
   parameters[i][(n_trophic_group-1)]=std::stof(Text);
   std::cerr<<parameters[i][(n_trophic_group-1)]<<std::endl;
+ }
+}
+
+void compute_detritivory_rate_matrix3d(double ***detritivory_rate_matrix3d,double **detritivory_rate_matrix, double **detritivory_parameters, double **animal_bodymass_average_matrix, double *detritus, double *detritus_mass, int n_detritus, int n_detritivore, int *pos_detritivore, int *n_mass_list, double *temp, int *p){
+ for (int i=0;i<n_detritivore;i++){
+  p[0]=pos_detritivore[i];
+  for (int j=0;j<n_mass_list[(p[0])];j++){
+   temp[0]=0.0;
+   for (int k=0;k<n_detritus;k++){
+    detritivory_rate_matrix3d[i][j][k]=detritus[k]*detritivory_parameters[i][3]*animal_bodymass_average_matrix[(p[0])][j]*exp(-pow((log(detritus_mass[k]/animal_bodymass_average_matrix[(p[0])][j])-detritivory_parameters[i][4])/detritivory_parameters[i][5],2)); // NB : detritivory has 6 parameters
+    temp[0]+=detritivory_rate_matrix3d[i][j][k];
+   }
+   for (int k=0;k<n_detritus;k++){
+    detritivory_rate_matrix3d[i][j][k]*=(detritivory_rate_matrix[i][j]/temp[0]);
+   }
+  }
  }
 }
