@@ -20,22 +20,22 @@ void make_average_logbodymass_matrix(double **animal_logbodymass_matrix, double 
  }
 }
 
-double animal_respiration(double animal_bodymass, double *metabolic_parameters){
- return metabolic_parameters[0]*exp(metabolic_parameters[1]*log(animal_bodymass));
+double animal_respiration(double animal_bodymass, double *metabolic_parameters, double deltaT){
+ return deltaT*metabolic_parameters[0]*exp(metabolic_parameters[1]*log(animal_bodymass));
 }
 
-void animal_growth_logbodymass_without_waste(double *animal_density, double *animal_newdensity, double *animal_logbodymass, double *animal_bodymass_average, double *food_assimilated, int n_mass, double *metabolic_parameters){
+void animal_growth_logbodymass_without_waste(double *animal_density, double *animal_newdensity, double *animal_logbodymass, double *animal_bodymass_average, double *food_assimilated, int n_mass, double *metabolic_parameters, double deltaT){
  for (int i=0;i<n_mass;i++){
   animal_newdensity[i]=animal_density[i];
  }
  for (int i=0;i<n_mass;i++){
   if (animal_density[i]>0.0){
-   double respiration=animal_density[i]*animal_respiration((animal_bodymass_average[i]),metabolic_parameters);
-   double growing_factor = (food_assimilated[i] - respiration )/ (animal_density[i]*(animal_bodymass_average[i]));
+   double respiration=animal_density[i]*animal_respiration((animal_bodymass_average[i]),metabolic_parameters,deltaT);
+   double growing_factor = std::max(-1.0,(food_assimilated[i] - respiration )/ (animal_density[i]*(animal_bodymass_average[i]))); // organisms cannot respire more than their body mass.
    //waste[i]=((1-animal_growth_parameters[0])*food_assimilated[i])+metabolic_parameters[2]*respiration; // non_assimilated food + part of the respiration that turns into faeces/urine (as opposed to CO2)
    if (growing_factor>=0.0){
     if (i<(n_mass-1)){ // part of the increment goes into the bodymass class above
-     double growing_proportion = log(1+growing_factor) / animal_logbodymass[n_mass]; // last cell of bodymass stores the mass width of each cell
+     double growing_proportion= std::min(1.0,log(1+growing_factor) / animal_logbodymass[n_mass]); // last cell of bodymass stores the mass width of each cell
      animal_newdensity[i]*=(1.0-growing_proportion)*(1.0+growing_factor);
      animal_newdensity[(i+1)]+= (growing_proportion*(1.0+growing_factor)*animal_density[i]*animal_bodymass_average[i]/animal_bodymass_average[(i+1)]);
     }
@@ -45,7 +45,7 @@ void animal_growth_logbodymass_without_waste(double *animal_density, double *ani
    }
    else{
     if (i>0){ // part of the decrement goes into the bodymass class below
-     double decreasing_proportion = -log(1+growing_factor) / animal_logbodymass[n_mass];
+     double decreasing_proportion = std::min(1.0,-log(1+growing_factor) / animal_logbodymass[n_mass]);
      animal_newdensity[i]*=(1.0-decreasing_proportion)*(1.0+growing_factor);
      animal_newdensity[(i-1)]+= (decreasing_proportion*(1.0+growing_factor)*animal_density[i]*animal_bodymass_average[i]/animal_bodymass_average[(i-1)]);
     }
@@ -57,9 +57,9 @@ void animal_growth_logbodymass_without_waste(double *animal_density, double *ani
  }
 }
 
-void animal_growth_logbodymass_matrix_without_waste(double **animal_density_matrix, double **animal_newdensity_matrix, double **animal_logbodymass_matrix, double **animal_bodymass_average_matrix, double **food_assimilated_matrix, int *n_mass_list, double **metabolic_parameters_matrix, int n_trophic_group){
+void animal_growth_logbodymass_matrix_without_waste(double **animal_density_matrix, double **animal_newdensity_matrix, double **animal_logbodymass_matrix, double **animal_bodymass_average_matrix, double **food_assimilated_matrix, int *n_mass_list, double **metabolic_parameters_matrix, int n_trophic_group, double deltaT){
  for (int i=0;i<n_trophic_group;i++){
-  animal_growth_logbodymass_without_waste(animal_density_matrix[i],animal_newdensity_matrix[i],animal_logbodymass_matrix[i],animal_bodymass_average_matrix[i],food_assimilated_matrix[i],n_mass_list[i],metabolic_parameters_matrix[i]);
+  animal_growth_logbodymass_without_waste(animal_density_matrix[i],animal_newdensity_matrix[i],animal_logbodymass_matrix[i],animal_bodymass_average_matrix[i],food_assimilated_matrix[i],n_mass_list[i],metabolic_parameters_matrix[i],deltaT);
  }
 }
 
@@ -830,7 +830,7 @@ List foodweb(List foodweb_inputs){
   animal_predation_with_waste(animal_density_matrix,animal_consumed_density_matrix,animal_bodymass_average_matrix,food_assimilated_array,waste_matrix,predation_matrix,sum_predation_array,deltaT,n_trophic_group,n_carnivore,n_mass_list,animal_growth_parameters,pos_predation_matrix,pos_carnivore,temp,temp2);
   compile_predator_food_eaten(food_assimilated_array,food_assimilated_matrix,lines_predation_matrix,cols_predation_matrix,pos_density_matrix);
   //growth following food assimilation
-  animal_growth_logbodymass_matrix_without_waste(animal_density_matrix,animal_newdensity_matrix,animal_logbodymass_matrix,animal_bodymass_average_matrix,food_assimilated_matrix,n_mass_list,metabolic_parameters,n_trophic_group);
+  animal_growth_logbodymass_matrix_without_waste(animal_density_matrix,animal_newdensity_matrix,animal_logbodymass_matrix,animal_bodymass_average_matrix,food_assimilated_matrix,n_mass_list,metabolic_parameters,n_trophic_group,deltaT);
   //natural mortality
   animal_natural_mortality_matrix(animal_newdensity_matrix,animal_bodymass_average_matrix,carrion_matrix,n_mass_list,mortality_parameters,deltaT,n_trophic_group);
   //reproduction
@@ -871,170 +871,3 @@ List foodweb(List foodweb_inputs){
  return foodweb_outputs;
 }
 
-// FUNCTIONS NOT USED ANYMORE
-
-void make_average_bodymass(double *animal_bodymass, double *animal_bodymass_average, int n_mass){
- for (int i=0;i<n_mass;i++){
-  animal_bodymass_average[i]=animal_bodymass[i]+0.5*animal_bodymass[n_mass];
- }
-}
-
-void make_average_bodymass_matrix(double **animal_bodymass_matrix, double **animal_bodymass_average_matrix, int *n_mass_list, int n_trophic_group){
- for (int i=0;i<n_trophic_group;i++){
-    make_average_bodymass(animal_bodymass_matrix[i],animal_bodymass_average_matrix[i],n_mass_list[i]);
- }
-}
-
-void animal_growth(double *animal_density, double *animal_newdensity, double *animal_bodymass, double *animal_bodymass_average, double *food_eaten, double *waste, int n_mass, double *animal_growth_parameters, double *metabolic_parameters){
- for (int i=0;i<n_mass;i++){
-  animal_newdensity[i]=animal_density[i];
- }
- for (int i=0;i<n_mass;i++){
-  if (animal_density[i]>0.0){
-   double respiration=animal_density[i]*animal_respiration((animal_bodymass_average[i]),metabolic_parameters);
-   double growing_factor = ((animal_growth_parameters[0]*food_eaten[i]) - respiration )/ (animal_density[i]*(animal_bodymass_average[i]));
-   waste[i]=((1-animal_growth_parameters[0])*food_eaten[i])+metabolic_parameters[2]*respiration; // non_assimilated food + part of the respiration that turns into faeces/urine (as opposed to CO2)
-   if (growing_factor>=0.0){
-    if (i<(n_mass-1)){ // part of the increment goes into the bodymass class above
-     double growing_threshold = animal_bodymass[(i+1)] / (1.0+growing_factor); // last cell of bodymass stores the mass width of each cell
-     double growing_proportion = (animal_bodymass[(i+1)] - growing_threshold) / animal_bodymass[n_mass];
-     animal_newdensity[i]*=(1.0-growing_proportion)*(1.0+growing_factor);
-     animal_newdensity[(i+1)]+= (growing_proportion*(1.0+growing_factor)*animal_density[i]*animal_bodymass_average[i]/animal_bodymass_average[(i+1)]);
-    }
-    else{ // all the increment stays in the upper bodymass class and is translated as an increase in density
-     animal_newdensity[i]*=(1.0+growing_factor);
-    }
-   }
-   else{
-    if (i>0){ // part of the decrement goes into the bodymass class below
-     double decreasing_threshold = (animal_bodymass[i]) / (1.0+growing_factor); // last cell of bodymass stores the mass width of each cell
-     double decreasing_proportion = (decreasing_threshold-animal_bodymass[i]) / animal_bodymass[n_mass];
-     animal_newdensity[i]*=(1.0-decreasing_proportion)*(1.0+growing_factor);
-     animal_newdensity[(i-1)]+= (decreasing_proportion*(1.0+growing_factor)*animal_density[i]*animal_bodymass_average[i]/animal_bodymass_average[(i-1)]);
-    }
-    else{ // all the decrement stays in the lower bodymass class and is translated as a decrease in density
-     animal_newdensity[i]*=(1.0+growing_factor);
-    }
-   }
-  }
- }
-}
-
-void animal_growth_matrix(double **animal_density_matrix, double **animal_newdensity_matrix, double **animal_bodymass_matrix, double **animal_bodymass_average_matrix, double **food_eaten_matrix, double **waste_matrix, int *n_mass_list, double **animal_growth_parameters_matrix, double **metabolic_parameters_matrix, int n_trophic_group){
- for (int i=0;i<n_trophic_group;i++){
-  animal_growth(animal_density_matrix[i],animal_newdensity_matrix[i],animal_bodymass_matrix[i],animal_bodymass_average_matrix[i],food_eaten_matrix[i],waste_matrix[i],n_mass_list[i],animal_growth_parameters_matrix[i],metabolic_parameters_matrix[i]);
- }
-}
-
-void animal_growth_logbodymass(double *animal_density, double *animal_newdensity, double *animal_logbodymass, double *animal_bodymass_average, double *food_eaten, double *waste, int n_mass, double *animal_growth_parameters, double *metabolic_parameters){
- for (int i=0;i<n_mass;i++){
-  animal_newdensity[i]=animal_density[i];
- }
- for (int i=0;i<n_mass;i++){
-  if (animal_density[i]>0.0){
-   double respiration=animal_density[i]*animal_respiration((animal_bodymass_average[i]),metabolic_parameters);
-   double growing_factor = ((animal_growth_parameters[0]*food_eaten[i]) - respiration )/ (animal_density[i]*(animal_bodymass_average[i]));
-   waste[i]=((1-animal_growth_parameters[0])*food_eaten[i])+metabolic_parameters[2]*respiration; // non_assimilated food + part of the respiration that turns into faeces/urine (as opposed to CO2)
-   if (growing_factor>=0.0){
-    if (i<(n_mass-1)){ // part of the increment goes into the bodymass class above
-     double growing_proportion = log(1+growing_factor) / animal_logbodymass[n_mass]; // last cell of bodymass stores the mass width of each cell
-     animal_newdensity[i]*=(1.0-growing_proportion)*(1.0+growing_factor);
-     animal_newdensity[(i+1)]+= (growing_proportion*(1.0+growing_factor)*animal_density[i]*animal_bodymass_average[i]/animal_bodymass_average[(i+1)]);
-    }
-    else{ // all the increment stays in the upper bodymass class and is translated as an increase in density
-     animal_newdensity[i]*=(1.0+growing_factor);
-    }
-   }
-   else{
-    if (i>0){ // part of the decrement goes into the bodymass class below
-     double decreasing_proportion = -log(1+growing_factor) / animal_logbodymass[n_mass];
-     animal_newdensity[i]*=(1.0-decreasing_proportion)*(1.0+growing_factor);
-     animal_newdensity[(i-1)]+= (decreasing_proportion*(1.0+growing_factor)*animal_density[i]*animal_bodymass_average[i]/animal_bodymass_average[(i-1)]);
-    }
-    else{ // all the decrement stays in the lower bodymass class and is translated as a decrease in density
-     animal_newdensity[i]*=(1.0+growing_factor);
-    }
-   }
-  }
- }
-}
-
-void animal_growth_logbodymass_matrix(double **animal_density_matrix, double **animal_newdensity_matrix, double **animal_logbodymass_matrix, double **animal_bodymass_average_matrix, double **food_eaten_matrix, double **waste_matrix, int *n_mass_list, double **animal_growth_parameters_matrix, double **metabolic_parameters_matrix, int n_trophic_group){
- for (int i=0;i<n_trophic_group;i++){
-  animal_growth_logbodymass(animal_density_matrix[i],animal_newdensity_matrix[i],animal_logbodymass_matrix[i],animal_bodymass_average_matrix[i],food_eaten_matrix[i],waste_matrix[i],n_mass_list[i],animal_growth_parameters_matrix[i],metabolic_parameters_matrix[i]);
- }
-}
-
-void animal_predation(double **animal_density_matrix, double **animal_consumed_density_matrix, double **food_eaten_array, double **predation_matrix, double *sum_predation_matrix, int size_predation_matrix, double deltaT, int n_trophic_species, int *n_mass_list, int **pos_predation_matrix, int *p, double *temp){
- for (int k=0;k<n_trophic_species;k++){
-  for (int l=0;l<n_mass_list[k];l++){
-   p[0]=pos_predation_matrix[k][l];
-   animal_consumed_density_matrix[k][l]=predation_matrix[0][(p[0])];
-   for (int m=1;m<size_predation_matrix;m++){ // NB: requires that size_predation_matrix>=2
-    animal_consumed_density_matrix[k][l]+=predation_matrix[m][(p[0])];
-   }
-   temp[0]=animal_density_matrix[k][l]*(1-exp(-deltaT*animal_consumed_density_matrix[k][l]));
-   animal_consumed_density_matrix[k][l]=temp[0];
-   animal_density_matrix[k][l]-=animal_consumed_density_matrix[k][l];
-   // computation of food eaten by each predator (eq. 46)
-   for (int m=0;m<size_predation_matrix;m++){
-    food_eaten_array[m][(p[0])]=temp[0]*predation_matrix[m][(p[0])]/sum_predation_matrix[(p[0])];
-   }
-  }
- }
-}
-
-void read_global_parameters(std::ifstream &read_param, double *global_parameters){
- std::string Text;
- for (int i=0;i<2;i++){
-  std::getline(read_param,Text,','); // name of the parameter
-  std::getline(read_param,Text);
-  global_parameters[i]=std::stoi(Text);
- }
- std::cerr<<"n_trophic_groud read : "<<global_parameters[0]<<std::endl;
- std::cerr<<"deltaT read : "<<global_parameters[1]<<std::endl;
-}
-
-void read_trophic_group(std::ifstream &read_param, int n_trophic_group, char **name_trophic_group, double **parameters, int n_param){
- std::string Text;
- // READ NAMES OF TROPHIC GROUPS
- std::getline(read_param,Text,','); // name_trophic_group
- for (int i=0;i<(n_trophic_group-1);i++){
-  std::getline(read_param,Text,',');
-  strcpy(name_trophic_group[i], Text.c_str());
-  std::cerr<<i<<" "<<name_trophic_group[i]<<std::endl;
- }
- std::getline(read_param,Text);
- strcpy(name_trophic_group[(n_trophic_group-1)], Text.c_str());
- std::cerr<<(n_trophic_group-1)<<" "<<name_trophic_group[(n_trophic_group-1)]<<std::endl;
-
- // READ PARAMETERS OF TROPHIC GROUPS
- for (int i=0;i<n_param;i++){
-  std::getline(read_param,Text,','); // name of parameters
-  std::cerr<<i<<" : ";
-  for (int j=0;j<(n_trophic_group-1);j++){
-   std::getline(read_param,Text,',');
-   parameters[i][j]=std::stof(Text);
-   std::cerr<<parameters[i][j]<<" ";
-  }
-  std::getline(read_param,Text);
-  parameters[i][(n_trophic_group-1)]=std::stof(Text);
-  std::cerr<<parameters[i][(n_trophic_group-1)]<<std::endl;
- }
-}
-
-void compute_detritivory_rate_matrix3d(double ***detritivory_rate_matrix3d,double **detritivory_rate_matrix, double **detritivory_parameters, double **animal_bodymass_average_matrix, double *detritus, double *detritus_mass, int n_detritus, int n_detritivore, int *pos_detritivore, int *n_mass_list, double *temp, int *p){
- for (int i=0;i<n_detritivore;i++){
-  p[0]=pos_detritivore[i];
-  for (int j=0;j<n_mass_list[(p[0])];j++){
-   temp[0]=0.0;
-   for (int k=0;k<n_detritus;k++){
-    detritivory_rate_matrix3d[i][j][k]=detritus[k]*detritivory_parameters[i][3]*animal_bodymass_average_matrix[(p[0])][j]*exp(-pow((log(detritus_mass[k]/animal_bodymass_average_matrix[(p[0])][j])-detritivory_parameters[i][4])/detritivory_parameters[i][5],2)); // NB : detritivory has 6 parameters
-    temp[0]+=detritivory_rate_matrix3d[i][j][k];
-   }
-   for (int k=0;k<n_detritus;k++){
-    detritivory_rate_matrix3d[i][j][k]*=(detritivory_rate_matrix[i][j]/temp[0]);
-   }
-  }
- }
-}
