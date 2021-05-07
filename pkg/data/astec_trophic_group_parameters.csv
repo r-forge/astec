@@ -8,6 +8,7 @@ metabolic1,0.1,0.1,0.1
 metabolic2,0.5,0.5,0.5
 metabolic3,0.3,0.3,0.3
 mortality1,0.9,0.9,0.9
+mortality2,0.9,0.9,0.9
 reproduction1,0.9,0.9,0.9
 reproduction2,0.9,0.9,0.9
 predation1,10,10,10
