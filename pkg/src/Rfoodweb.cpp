@@ -36,7 +36,7 @@ void animal_growth_logbodymass_without_waste(double *animal_density, double *ani
    //waste[i]=((1-animal_growth_parameters[0])*food_assimilated[i])+metabolic_parameters[2]*respiration; // non_assimilated food + part of the respiration that turns into faeces/urine (as opposed to CO2)
    if (growing_factor>=0.0){
     if (i<(n_mass-1)){ // part of the increment goes into the bodymass class above
-     double growing_proportion= std::min(1.0,log(1+growing_factor) / animal_logbodymass[n_mass]); // last cell of bodymass stores the mass width of each cell
+     double growing_proportion= std::min(1.0,log(1.0+growing_factor) / animal_logbodymass[n_mass]); // last cell of bodymass stores the mass width of each cell
      animal_newdensity[i]*=(1.0-growing_proportion)*(1.0+growing_factor);
      animal_changing_size[(i+1)]+= (growing_proportion*(1.0+growing_factor)*animal_density[i]*animal_bodymass_average[i]/animal_bodymass_average[(i+1)]);
     }
@@ -46,7 +46,7 @@ void animal_growth_logbodymass_without_waste(double *animal_density, double *ani
    }
    else{
     if (i>0){ // part of the decrement goes into the bodymass class below
-     double decreasing_proportion = std::min(1.0,-log(1+growing_factor) / animal_logbodymass[n_mass]);
+     double decreasing_proportion = std::min(1.0,-log(1.0+growing_factor) / animal_logbodymass[n_mass]);
      animal_newdensity[i]*=(1.0-decreasing_proportion)*(1.0+growing_factor);
      animal_changing_size[(i-1)]+= (decreasing_proportion*(1.0+growing_factor)*animal_density[i]*animal_bodymass_average[i]/animal_bodymass_average[(i-1)]);
     }
@@ -141,10 +141,11 @@ void computation_predation_matrix(double **predation_matrix, double *sum_predati
  for (int m=0;m<cols_predation_matrix;m++){
   sum_predation_array[m]=0.0;
  }
+ p[0]=0;
  for (int c=0;c<n_carnivore;c++){
   int k=pos_carnivore[c];
   for (int l=0;l<n_mass_list[k];l++){
-   p[0]=pos_predation_matrix[k][l];
+   //p[0]=pos_predation_matrix[k][l];
    //computation of the denominator and storage in temp : 1 + sum_m a_im * d_m * T_im
    temp[0]=1.0;
    for (int m=0;m<cols_predation_matrix;m++){
@@ -155,6 +156,7 @@ void computation_predation_matrix(double **predation_matrix, double *sum_predati
      predation_matrix[(p[0])][m]=animal_density_matrix[k][l]*attack_rate_matrix[(p[0])][m]/temp[0];
      sum_predation_array[m]+=predation_matrix[(p[0])][m];
    }
+   p[0]+=1;
   }
  }
 }
@@ -165,28 +167,36 @@ void animal_predation_with_waste(double **animal_density_matrix, double **animal
    p[0]=pos_predation_matrix[k][l];
    animal_consumed_density_matrix[k][l]=animal_density_matrix[k][l]*(1-exp(-deltaT*sum_predation_array[(p[0])]));
    animal_density_matrix[k][l]-=animal_consumed_density_matrix[k][l];
-   temp[0]=animal_consumed_density_matrix[k][l]*animal_bodymass_average_matrix[k][l]/sum_predation_array[(p[0])]; // biomass amount since multiplication by average bodymass of prey
+   temp[0]=animal_consumed_density_matrix[k][l]*animal_bodymass_average_matrix[k][l];
+   if (sum_predation_array[(p[0])]>0.0){
+    temp[0]/=sum_predation_array[(p[0])];
+   }
+   // biomass amount since multiplication by average bodymass of prey
    // computation of food eaten by each predator (eq. 46)
+   int mc=0;
    for (int c=0;c<n_carnivore;c++){
     int i=pos_carnivore[c];
     for (int j=0;j<n_mass_list[i];j++){
      int m=pos_predation_matrix[i][j];
-     food_assimilated_array[m][(p[0])]=temp[0]*predation_matrix[m][(p[0])]; // NB: computation completed two lines below
+     food_assimilated_array[m][(p[0])]=temp[0]*predation_matrix[mc][(p[0])]; // NB: computation completed two lines below
      waste_matrix[i][j]+=food_assimilated_array[m][(p[0])]*(1-animal_growth_parameters_matrix[i][0]); // NB : wastes need to be set to 0 at each time step.
      food_assimilated_array[m][(p[0])]*=animal_growth_parameters_matrix[i][0];
+     mc+=1;
     }
    }
   }
  }
 }
 
-void compile_predator_food_eaten(double **food_assimilated_array,double **food_assimilated_matrix,int lines_predation_matrix,int cols_predation_matrix,int **pos_density_matrix){
- for (int i=0;i<lines_predation_matrix;i++){
-  int k=pos_density_matrix[i][0];
-  int l=pos_density_matrix[i][1];
-  food_assimilated_matrix[k][l]=0.0;
-  for (int j=0;j<cols_predation_matrix;j++){
-   food_assimilated_matrix[k][l]+=food_assimilated_array[i][j];
+void compile_predator_food_eaten(double **food_assimilated_array,double **food_assimilated_matrix,int cols_predation_matrix,int **pos_predation_matrix,int n_carnivore, int *pos_carnivore, int *n_mass_list){
+ for (int c=0;c<n_carnivore;c++){
+  int i=pos_carnivore[c];
+  for (int j=0;j<n_mass_list[i];j++){
+   food_assimilated_matrix[i][j]=0.0;
+   int l=pos_predation_matrix[i][j];
+   for (int k=0;k<cols_predation_matrix;k++){
+    food_assimilated_matrix[i][j]+=food_assimilated_array[l][k];
+   }
   }
  }
 }
@@ -196,6 +206,17 @@ void nullify(double **waste_matrix,int n_trophic_species,int *n_mass_list){
     for (int j=0;j<n_mass_list[i];j++){
         waste_matrix[i][j]=0;
     }
+ }
+}
+
+void nullify2(double ***matrix3d,int n_detri,int *pos_detri,int *n_mass_list,int n_det){
+ for (int h=0;h<n_detri;h++){
+  int i=pos_detri[h];
+  for (int j=0;j<n_mass_list[i];j++){
+   for (int k=0;k<n_det;k++){
+    matrix3d[h][j][k]=0;
+   }
+  }
  }
 }
 
@@ -249,7 +270,6 @@ void compute_detritivory_rates(double **detritivory_attack_rate, double **detrit
    detritivory_handling_time[i][j]=detritivory_parameters[i][2]*exp(detritivory_parameters[i][3]*log(animal_bodymass_average_matrix[(p[0])][j]));
   }
  }
-
 }
 
 
@@ -263,7 +283,10 @@ void herbivory_with_waste(double *plant_biomass, double **animal_density_matrix,
   }
  }
  consumed_biomass[0]=plant_biomass[0]*(1-exp(-deltaT*temp[0]));
- consumed_biomass[0]/=temp[0]; // for computing speed in herbivory_matrix below
+ plant_biomass[0]-=consumed_biomass[0];
+ if (temp[0]>0.0){
+  consumed_biomass[0]/=temp[0]; // for computing speed in herbivory_matrix below
+ }
  for (int i=0;i<n_herbivore;i++){ // computation of DeltaB_i amount of plant biomass consumed by each herbivore
   p[0]=pos_herbivore[i];
   for (int j=0;j<n_mass_list[(p[0])];j++){
@@ -286,7 +309,10 @@ void detritivory_with_waste(double *detritus, double **animal_density_matrix,int
    }
   }
   consumed_biomass[0]=detritus[k]*(1-exp(-deltaT*temp[0]));
-  consumed_biomass[0]/=temp[0]; // for computing speed in detritivory_matrix below
+  detritus[k]-=consumed_biomass[0];
+  if (temp[0]>0.0){
+   consumed_biomass[0]/=temp[0]; // for computing speed in detritivory_matrix below
+  }
   for (int i=0;i<n_detritivore;i++){ // computation of DeltaB_i amount of detritus consumed by each detritivore
    p[0]=pos_detritivore[i];
    for (int j=0;j<n_mass_list[(p[0])];j++){
@@ -504,7 +530,7 @@ List foodweb(List foodweb_inputs){
  for (int i=0;i<n_trophic_group;i++){
   animal_growth_parameters[i]=new double[1];
   metabolic_parameters[i]=new double[3];
-  mortality_parameters[i]=new double[1];
+  mortality_parameters[i]=new double[2];
   reproduction_parameters[i]=new double[2];
   animal_growth_parameters[i][0]=trophic_group_parameters[4][i];
   for (int j=0;j<3;j++){
@@ -536,7 +562,7 @@ List foodweb(List foodweb_inputs){
   }
  }
 
- Rcerr <<"block 8"<<"\n";
+ //Rcerr <<"block 8"<<"\n";
 
  double **animal_density_matrix;
  animal_density_matrix=new double *[n_trophic_group];
@@ -605,7 +631,7 @@ List foodweb(List foodweb_inputs){
     detritus_mass[i]=dm[i];
  }
 
- Rcerr <<"block 11"<<"\n";
+ //Rcerr <<"block 11"<<"\n";
 
  NumericVector da=foodweb_inputs["detritus_amount"];
  checktest= (da.size()!=n_detritus);
@@ -821,6 +847,8 @@ List foodweb(List foodweb_inputs){
   // put waste and carrion to zero
   nullify(waste_matrix,n_trophic_group,n_mass_list);
   nullify(carrion_matrix,n_trophic_group,n_mass_list);
+  nullify(food_assimilated_matrix,n_trophic_group,n_mass_list);
+  nullify2(food_assimilated_matrix3d,n_detritivore,pos_detritivore,n_mass_list,n_detritus);
 
   // read the plant (green) biomass of the corresponding time step.
   plant_biomass[0]=plant_biomass_series[(istep%n_plant_biomass_series)];
@@ -837,7 +865,7 @@ List foodweb(List foodweb_inputs){
   computation_predation_matrix(predation_matrix,sum_predation_array,cols_predation_matrix,animal_density_matrix,attack_rate_matrix,handling_time_matrix,n_carnivore,n_mass_list,pos_predation_matrix,pos_density_matrix,pos_carnivore,temp,temp2);
   //actual predation and food eaten by each size class
   animal_predation_with_waste(animal_density_matrix,animal_consumed_density_matrix,animal_bodymass_average_matrix,food_assimilated_array,waste_matrix,predation_matrix,sum_predation_array,deltaT,n_trophic_group,n_carnivore,n_mass_list,animal_growth_parameters,pos_predation_matrix,pos_carnivore,temp,temp2);
-  compile_predator_food_eaten(food_assimilated_array,food_assimilated_matrix,lines_predation_matrix,cols_predation_matrix,pos_density_matrix);
+  compile_predator_food_eaten(food_assimilated_array,food_assimilated_matrix,cols_predation_matrix,pos_predation_matrix,n_carnivore,pos_carnivore,n_mass_list);
   //growth following food assimilation
   animal_growth_logbodymass_matrix_without_waste(animal_density_matrix,animal_newdensity_matrix,animal_changing_size_matrix,animal_logbodymass_matrix,animal_bodymass_average_matrix,food_assimilated_matrix,n_mass_list,metabolic_parameters,n_trophic_group,deltaT);
   //natural mortality
@@ -866,7 +894,7 @@ List foodweb(List foodweb_inputs){
  }
 
 
- Rcerr <<"block 16"<<"\n";
+ //Rcerr <<"block 16"<<"\n";
 
 
  NumericMatrix matrix_attack_rate(lines_predation_matrix,cols_predation_matrix);
