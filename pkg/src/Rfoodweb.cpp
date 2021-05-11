@@ -21,6 +21,7 @@ void make_average_logbodymass_matrix(double **animal_logbodymass_matrix, double 
 }
 
 double animal_respiration(double animal_bodymass, double *metabolic_parameters, double deltaT){
+ //Rcerr <<"respi "<< deltaT*metabolic_parameters[0]*exp(metabolic_parameters[1]*log(animal_bodymass)) <<"\n";
  return deltaT*metabolic_parameters[0]*exp(metabolic_parameters[1]*log(animal_bodymass));
 }
 
@@ -34,10 +35,12 @@ void animal_growth_logbodymass_without_waste(double *animal_density, double *ani
   if (animal_density[i]>0.0){
    respiration=animal_density[i]*animal_respiration((animal_bodymass_average[i]),metabolic_parameters,deltaT);
    growing_factor = std::max(-1.0,((food_assimilated[i] - respiration )/ (animal_density[i]*animal_bodymass_average[i]))); // organisms cannot respire more than their body mass.
+   //Rcerr <<i<<" gf "<< growing_factor <<"\n";
    //waste[i]=((1-animal_growth_parameters[0])*food_assimilated[i])+metabolic_parameters[2]*respiration; // non_assimilated food + part of the respiration that turns into faeces/urine (as opposed to CO2)
    if (growing_factor>=0.0f){
     if (i<(n_mass-1)){ // part of the increment goes into the bodymass class above
      growing_proportion= std::min(1.0,(log(1.0+growing_factor) / animal_logbodymass[n_mass])); // last cell of bodymass stores the mass width of each cell
+     //Rcerr <<"gp "<< growing_proportion <<"\n";
      animal_newdensity[i]*=(1.0-growing_proportion)*(1.0+growing_factor);
      animal_changing_size[(i+1)]+= (growing_proportion*(1.0+growing_factor)*animal_density[i]*animal_bodymass_average[i]/animal_bodymass_average[(i+1)]);
     }
@@ -48,6 +51,7 @@ void animal_growth_logbodymass_without_waste(double *animal_density, double *ani
    else{
     if (i>0){ // part of the decrement goes into the bodymass class below
      decreasing_proportion = std::min(1.0,(-log(1.0+growing_factor) / animal_logbodymass[n_mass]));
+     //Rcerr <<"dp "<< decreasing_proportion <<"\n";
      animal_newdensity[i]*=((1.0-decreasing_proportion)*(1.0+growing_factor));
      animal_changing_size[(i-1)]+= (decreasing_proportion*(1.0+growing_factor)*animal_density[i]*animal_bodymass_average[i]/animal_bodymass_average[(i-1)]);
     }
