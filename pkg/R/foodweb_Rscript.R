@@ -42,7 +42,7 @@ Ranimal_growth_logbodymass_without_waste<-function(animal_density,animal_logbody
    }
    else{
     if (i>1){ # part of the decrement goes into the bodymass class below
-     decreasing_proportion = min(1.0,(-log(1.0+growing_factor) / animal_logbodymass[n_mass]))
+     decreasing_proportion = min(1.0,(-log(1.0+growing_factor) / animal_logbodymass[(n_mass+1)]))
      res[i]=(res[i]*(1.0-decreasing_proportion)*(1.0+growing_factor))
      changing_size[(i-1)]= (changing_size[(i-1)]+(decreasing_proportion*(1.0+growing_factor)*animal_density[i]*animal_bodymass_average[i]/animal_bodymass_average[(i-1)]))
     }
