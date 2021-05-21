@@ -605,7 +605,9 @@ Rfoodweb<-function(foodweb_inputs){
   }
  }
 
- plant_biomass_series=foodweb_inputs$plant_biomass_series
+ plant_biomass_s=foodweb_inputs$plant_biomass_series
+ plant_biomass_ini=plant_biomass_s[1]
+ plant_biomass_series=plant_biomass_s[-1]
  n_plant_biomass_series=length(plant_biomass_series)
 
  plant_senescence_parameters=foodweb_inputs$plant_senescence_parameters
@@ -669,7 +671,11 @@ Rfoodweb<-function(foodweb_inputs){
  i_output=1
  ad_output=list()
  det_output=list()
+ plant_output=list()
  output=list()
+
+ ##initializing plant biomass
+ plant_biomass=plant_biomass_ini
  for (istep in 1:n_step_dynamics){
   ## put waste and carrion to zero
   waste_list=Rnullify(n_trophic_group,n_mass_list)
@@ -677,13 +683,14 @@ Rfoodweb<-function(foodweb_inputs){
   food_assimilated_list=Rnullify(n_trophic_group,n_mass_list)
   food_assimilated_matrix3d=Rnullify2(n_detritivore,n_mass_list[pos_detritivore],n_detritus)
 
-  ## read the plant (green) biomass of the corresponding time step.
-  plant_biomass=plant_biomass_series[(1+((istep-1)%%n_plant_biomass_series))]
+  ## read the plant (green) biomass growth of the corresponding time step.
+  plant_biomass=(plant_biomass+plant_biomass_series[(1+((istep-1)%%n_plant_biomass_series))])
 
   ## herbivory and waste computation
   temp=Rherbivory_with_waste(plant_biomass,animal_density_list,pos_herbivore,herbivory_rate_list,herbivory_K_list,food_assimilated_list,animal_growth_parameters,deltaT,n_herbivore,n_mass_list,waste_list)
   food_assimilated_list=temp[[1]]
   waste_list=temp[[2]]
+  plant_consumed=plant_biomass-temp[[3]]
   plant_biomass=temp[[3]]
 
   if (istep==1){
@@ -754,7 +761,8 @@ Rfoodweb<-function(foodweb_inputs){
 
   ## update of the detritus
   detritus=Rcollect_detritus(detritus,waste_list,translation_waste_list,carrion_list,translation_carrion_list,n_trophic_group,n_mass_list)
-  detritus[translation_plant_litter]=(detritus[translation_plant_litter]+plant_biomass[1]*plant_senescence_rate) ## add plant litter
+  detritus[translation_plant_litter]=(detritus[translation_plant_litter]+plant_biomass*(1-exp(-plant_senescence_rate*deltaT))) ## add plant litter
+  plant_biomass=(plant_biomass*exp(-plant_senescence_rate*deltaT))
 
   if (istep==1){
    output[[16]]=detritus
@@ -764,11 +772,12 @@ Rfoodweb<-function(foodweb_inputs){
    ## OUTPUT
    ad_output[[i_output]]=animal_density_list
    det_output[[i_output]]=detritus
+   plant_output[[i_output]]=c(plant_biomass,plant_consumed)
    i_output=i_output+1
   }
  }
 
  ## OUTPUT
- list("animal_density_timeseries"=ad_output,"detritus_timeseries"=det_output,"attack_rate_matrix"=attack_rate_matrix,"handling_time_matrix"=handling_time_matrix,"herbivory_rate_list"=herbivory_rate_list,"herbivory_K_list"=herbivory_K_list,"detritivory_attack_rate"=detritivory_attack_rate,"detritivory_handling_time"=detritivory_handling_time,"output"=output,"animal_bodymass_average"=animal_bodymass_average_list,"metabolic_parameters"=metabolic_parameters)
+ list("animal_density_timeseries"=ad_output,"plant_timeseries"=plant_output,"detritus_timeseries"=det_output,"attack_rate_matrix"=attack_rate_matrix,"handling_time_matrix"=handling_time_matrix,"herbivory_rate_list"=herbivory_rate_list,"herbivory_K_list"=herbivory_K_list,"detritivory_attack_rate"=detritivory_attack_rate,"detritivory_handling_time"=detritivory_handling_time,"output"=output,"animal_bodymass_average"=animal_bodymass_average_list,"metabolic_parameters"=metabolic_parameters)
 }
 
