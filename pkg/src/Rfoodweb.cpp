@@ -316,6 +316,9 @@ void herbivory_with_waste(double *plant_biomass, double **animal_density_matrix,
    food_assimilated_matrix[(p[0])][j]*=animal_growth_parameters[(p[0])][0]; // return the matrix of food assimilated by herbivore
   }
  }
+ if (temp[0]>0.0){
+  consumed_biomass[0]*=temp[0]; // for correct output
+ }
 }
 
 
@@ -718,8 +721,13 @@ List foodweb(List foodweb_inputs){
  double *plant_biomass;
  plant_biomass=new double[1]; // no size-structure for plants
 
- NumericVector plant_biomass_series=foodweb_inputs["plant_biomass_series"];
- int n_plant_biomass_series=plant_biomass_series.size();
+ NumericVector plant_biomass_s=foodweb_inputs["plant_biomass_series"];
+ plant_biomass[0]=plant_biomass_s[0];
+ int n_plant_biomass_series=plant_biomass_s.size()-1;
+ NumericVector plant_biomass_series(n_plant_biomass_series);
+ for (int i=0;i<n_plant_biomass_series;i++){
+    plant_biomass_series[i]=plant_biomass_s[(i+1)];
+ }
 
  NumericVector plant_senescence_parameters=foodweb_inputs["plant_senescence_parameters"];
  checktest= (plant_senescence_parameters.size()!=2);
@@ -798,6 +806,8 @@ List foodweb(List foodweb_inputs){
  temp2= new double[2];
  double *temp3;
  temp3= new double[2];
+ double *plant_consumed_biomass;
+ plant_consumed_biomass=new double[1];
 
 
 
@@ -862,6 +872,7 @@ List foodweb(List foodweb_inputs){
     list_animal_density.push_back(ad2);
  }
  NumericMatrix det(n_detritus,tot_output);
+ NumericMatrix plant_out(2,tot_output);
 
  NumericMatrix ou(n_mass_list[0],11);
  /*for (int i=0;i<n_mass_list[0];i++){
@@ -887,10 +898,10 @@ List foodweb(List foodweb_inputs){
   nullify2(food_assimilated_matrix3d,n_detritivore,pos_detritivore,n_mass_list,n_detritus);
 
   // read the plant (green) biomass of the corresponding time step.
-  plant_biomass[0]=plant_biomass_series[(istep%n_plant_biomass_series)];
+  plant_biomass[0]+=plant_biomass_series[(istep%n_plant_biomass_series)];
 
   //herbivory and waste computation
-  herbivory_with_waste(plant_biomass,animal_density_matrix,pos_herbivore,herbivory_rate_matrix,herbivory_K_matrix,food_assimilated_matrix,animal_growth_parameters,deltaT,n_herbivore,n_mass_list,waste_matrix,temp3,temp2,temp);
+  herbivory_with_waste(plant_biomass,animal_density_matrix,pos_herbivore,herbivory_rate_matrix,herbivory_K_matrix,food_assimilated_matrix,animal_growth_parameters,deltaT,n_herbivore,n_mass_list,waste_matrix,temp3,plant_consumed_biomass,temp);
 
   if (istep==0){
    for (int j=0;j<n_trophic_group;j++){
@@ -993,7 +1004,8 @@ List foodweb(List foodweb_inputs){
 
    //update of the detritus
   collect_detritus(detritus,waste_matrix,translation_waste,carrion_matrix,translation_carrion,n_trophic_group,n_mass_list);
-  detritus[translation_plant_litter]+=plant_biomass[0]*plant_senescence_rate; // add plant litter
+  detritus[translation_plant_litter]+=(plant_biomass[0]*(1-exp(-plant_senescence_rate*deltaT))); // add plant litter
+  plant_biomass[0]*=exp(-plant_senescence_rate*deltaT);
 
   if (istep==0){
    //output.push_back(detritus);
@@ -1011,6 +1023,8 @@ List foodweb(List foodweb_inputs){
    for (int i=0;i<n_detritus;i++){
     det(i,i_output)=detritus[i];
    }
+   plant_out(0,i_output)=plant_biomass[0];
+   plant_out(1,i_output)=plant_consumed_biomass[0];
    i_output++;
   }
 
@@ -1062,7 +1076,7 @@ List foodweb(List foodweb_inputs){
   }
  }
 
- List foodweb_outputs = List::create(Named("animal_density_timeseries") = list_animal_density , _["detritus_timeseries"]=det, _["attack_rate"] = matrix_attack_rate, _["handling_time"] = matrix_handling_time, _["herbivory_rate"] = matrix_herbivory_rate, _["herbivory_K"] = matrix_herbivory_K, _["detritivory_rate"] = matrix_detritivory_rate, _["detritivory_handling"] = matrix_detritivory_handling, _["output"] = output);
+ List foodweb_outputs = List::create(Named("animal_density_timeseries") = list_animal_density , _["plant_timeseries"]=plant_out, _["detritus_timeseries"]=det, _["attack_rate"] = matrix_attack_rate, _["handling_time"] = matrix_handling_time, _["herbivory_rate"] = matrix_herbivory_rate, _["herbivory_K"] = matrix_herbivory_K, _["detritivory_rate"] = matrix_detritivory_rate, _["detritivory_handling"] = matrix_detritivory_handling, _["output"] = output);
  return foodweb_outputs;
 }
 
