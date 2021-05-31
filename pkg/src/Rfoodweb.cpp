@@ -114,7 +114,7 @@ void compute_attack_rate(double **attack_rate_matrix, double **animal_bodymass_a
    temp[1]=0;
    for (int k=0;k<n_trophic_group;k++){
     for (int l=0;l<n_mass_list[k];l++){
-     attack_rate_matrix[(temp[0])][(temp[1])]=predation_parameters[c][0]*animal_bodymass_average_matrix[i][j]*exp(-pow((log(animal_bodymass_average_matrix[k][l]/animal_bodymass_average_matrix[i][j])-predation_parameters[c][1])/predation_parameters[c][2],2));
+     attack_rate_matrix[(temp[0])][(temp[1])]=predation_parameters[c][0]*animal_bodymass_average_matrix[i][j]*exp(-pow((log(animal_bodymass_average_matrix[k][l]/animal_bodymass_average_matrix[i][j])-log(predation_parameters[c][1]))/predation_parameters[c][2],2));
      temp[1]+=1;
     }
    }

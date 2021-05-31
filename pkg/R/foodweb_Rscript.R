@@ -111,7 +111,7 @@ Rcompute_attack_rate<-function(animal_bodymass_average_list,predation_parameters
    p2=1
    for (k in 1:n_trophic_group){
     for (l in 1:n_mass_list[k]){
-     attack_rate_matrix[p1,p2]=predation_parameters[c,1]*animal_bodymass_average_list[[i]][j]*exp(-((log(animal_bodymass_average_list[[k]][l]/animal_bodymass_average_list[[i]][j])-predation_parameters[c,2])/predation_parameters[c,3])^2)
+     attack_rate_matrix[p1,p2]=predation_parameters[c,1]*animal_bodymass_average_list[[i]][j]*exp(-((log(animal_bodymass_average_list[[k]][l]/animal_bodymass_average_list[[i]][j])-log(predation_parameters[c,2]))/predation_parameters[c,3])^2)
      p2=p2+1
     }
    }
