@@ -83,6 +83,47 @@ Ranimal_growth2_logbodymass_matrix_without_waste<-function(animal_density_list,a
  res
 }
 
+Ranimal_growth3_logbodymass_without_waste<-function(animal_density,reproduction_info,animal_logbodymass,animal_bodymass_average,food_assimilated,n_mass,metabolic_parameters,deltaT){
+ res=animal_density
+ changing_size=res*0.0
+ respiration=animal_density*Ranimal_respiration(animal_bodymass_average,metabolic_parameters,deltaT)
+ juvenile_mass=reproduction_info[[1]]
+ juvenile_density=reproduction_info[[2]]
+ for (i in 1:n_mass){
+  if (animal_density[i]>0.0){
+   growing_factor = max(-1.0,((food_assimilated[i] - respiration[i] - juvenile_mass[i] )/ (animal_density[i]*animal_bodymass_average[i]))) # organisms cannot respire more than their body mass.
+   if (growing_factor>=0.0){
+    if (i<n_mass){ # part of the increment goes into the bodymass class above
+     growing_proportion= min(1.0,(log(1.0+growing_factor) / animal_logbodymass[(n_mass+1)])) # last cell of bodymass stores the mass width of each cell
+     res[i]=(res[i]*(1.0-growing_proportion)*(1.0+growing_factor))
+     changing_size[(i+1)]=(changing_size[(i+1)]+(growing_proportion*(1.0+growing_factor)*animal_density[i]*animal_bodymass_average[i]/animal_bodymass_average[(i+1)]))
+    }
+    else{ # all the increment stays in the upper bodymass class and is translated as an increase in density
+     res[i]=(res[i]*(1.0+growing_factor))
+    }
+   }
+   else{
+    if (i>1){ # part of the decrement goes into the bodymass class below
+     decreasing_proportion = min(1.0,(-log(1.0+growing_factor) / animal_logbodymass[(n_mass+1)]))
+     res[i]=(res[i]*(1.0-decreasing_proportion)*(1.0+growing_factor))
+     changing_size[(i-1)]= (changing_size[(i-1)]+(decreasing_proportion*(1.0+growing_factor)*animal_density[i]*animal_bodymass_average[i]/animal_bodymass_average[(i-1)]))
+    }
+    else{ # all the decrement stays in the lower bodymass class and is translated as a decrease in density
+     res[i]=(res[i]*(1.0+growing_factor))
+    }
+   }
+  }
+ }
+ res+changing_size+juvenile_density
+}
+
+Ranimal_growth3_logbodymass_matrix_without_waste<-function(animal_density_list,reproduction_info_list,animal_logbodymass_list,animal_bodymass_average_list,food_assimilated_list,n_mass_list,metabolic_parameters_matrix,n_trophic_group,deltaT){
+ res=vector("list",n_trophic_group)
+ for (i in 1:n_trophic_group){
+  res[[i]]=Ranimal_growth3_logbodymass_without_waste(animal_density_list[[i]],reproduction_info_list[[i]],animal_logbodymass_list[[i]],animal_bodymass_average_list[[i]],food_assimilated_list[[i]],n_mass_list[i],metabolic_parameters_matrix[i,],deltaT)
+ }
+ res
+}
 
 Ranimal_natural_mortality<-function(animal_density,bodymass_average,n_mass,mortality_parameters,deltaT){
  factor=exp(-deltaT*mortality_parameters[1]*exp(mortality_parameters[2]*log(bodymass_average)))
@@ -122,6 +163,24 @@ Ranimal_reproduction_matrix<-function(animal_density_list,animal_bodymass_averag
  }
  res
 }
+
+Ranimal_reproduction2<-function(animal_density,animal_bodymass_average,juvenile_mass,translation_juvenile_mass,reproduction_parameters,n_mass,deltaT){
+ animal_newdens=array(0,n_mass)
+ juv_mass=animal_density*reproduction_parameters[1]*exp(reproduction_parameters[2]*log(animal_bodymass_average))*deltaT*juvenile_mass
+ for (i in 1:n_mass){
+  animal_newdens[(translation_juvenile_mass[i])]=animal_newdens[(translation_juvenile_mass[i])]+(juv_mass[i]/animal_bodymass_average[(translation_juvenile_mass[i])])
+ }
+ list(juv_mass,animal_newdens)
+}
+
+Ranimal_reproduction2_matrix<-function(animal_density_list,animal_bodymass_average_list,juvenile_mass_list,translation_juvenile_mass_list,reproduction_parameters_matrix,n_mass_list,deltaT,n_trophic_group){
+ res=vector("list",n_trophic_group)
+ for (i in 1:n_trophic_group){
+  res[[i]]=Ranimal_reproduction2(animal_density_list[[i]],animal_bodymass_average_list[[i]],juvenile_mass_list[[i]],translation_juvenile_mass_list[[i]],reproduction_parameters_matrix[i,],n_mass_list[i],deltaT)
+ }
+ res
+}
+
 
 Rcompute_attack_rate<-function(animal_bodymass_average_list,predation_parameters,n_trophic_group,n_carnivore,n_mass_list,pos_carnivore){
  attack_rate_matrix=matrix(0,sum(n_mass_list[pos_carnivore]),sum(n_mass_list))
@@ -896,26 +955,20 @@ Rfoodweb_omni<-function(foodweb_inputs){
    output[[7]]=sum_consumption_array
   }
 
-  ## growth following food assimilation
+  ## growth following food assimilation (and reproduction if growth_model3)
   if (growth_model==1){
    animal_density_list=Ranimal_growth_logbodymass_matrix_without_waste(animal_density_list,animal_logbodymass_list,animal_bodymass_average_list,food_assimilated_list,n_mass_list,metabolic_parameters,n_trophic_group,deltaT)
   }
-  else{
+  if (growth_model==2){
    animal_density_list=Ranimal_growth2_logbodymass_matrix_without_waste(animal_density_list,animal_logbodymass_list,animal_bodymass_average_list,food_assimilated_list,n_mass_list,metabolic_parameters,n_trophic_group,deltaT)
+  }
+  if (growth_model==3){
+   temp=Ranimal_reproduction2_matrix(animal_density_list,animal_bodymass_average_list,juvenile_mass_list,translation_juvenile_list,reproduction_parameters,n_mass_list,deltaT,n_trophic_group)
+   animal_density_list=Ranimal_growth3_logbodymass_matrix_without_waste(animal_density_list,temp,animal_logbodymass_list,animal_bodymass_average_list,food_assimilated_list,n_mass_list,metabolic_parameters,n_trophic_group,deltaT)
   }
 
   if (istep==1){
    output[[8]]=animal_density_list
-  }
-
-  ## natural mortality
-  temp=Ranimal_natural_mortality_matrix(animal_density_list,animal_bodymass_average_list,n_mass_list,mortality_parameters,deltaT,n_trophic_group)
-  animal_density_list=temp[[1]]
-  carrion_list=temp[[2]]
-
-  if (istep==1){
-   output[[9]]=animal_density_list
-   output[[10]]=carrion_list
   }
 
   ## reproduction
@@ -924,7 +977,17 @@ Rfoodweb_omni<-function(foodweb_inputs){
   }
 
   if (istep==1){
-   output[[11]]=animal_density_list
+   output[[9]]=animal_density_list
+  }
+
+  ## natural mortality
+  temp=Ranimal_natural_mortality_matrix(animal_density_list,animal_bodymass_average_list,n_mass_list,mortality_parameters,deltaT,n_trophic_group)
+  animal_density_list=temp[[1]]
+  carrion_list=temp[[2]]
+
+  if (istep==1){
+   output[[10]]=animal_density_list
+   output[[11]]=carrion_list
   }
 
   ## update of the detritus
