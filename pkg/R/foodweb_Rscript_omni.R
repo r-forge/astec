@@ -226,6 +226,31 @@ Rcompute_attack_rate_omni<-function(animal_bodymass_average_list,predation_param
  attack_rate_matrix
 }
 
+Rcompute_attack_rate_omni_variable_predatorpreyratio<-function(animal_bodymass_average_list,predation_parameters,herbivory_parameters,detritivory_parameters,n_trophic_group,n_mass_list){
+ attack_rate_matrix=matrix(0,sum(n_mass_list),(sum(n_mass_list)+2))
+ p1=1
+ for (i in 1:n_trophic_group){
+  for (j in 1:n_mass_list[i]){
+   p2=1
+   for (k in 1:n_trophic_group){
+    for (l in 1:n_mass_list[k]){
+     attack_rate_matrix[p1,p2]=predation_parameters[i,1]*animal_bodymass_average_list[[i]][j]*exp(-((log(animal_bodymass_average_list[[i]][j]/animal_bodymass_average_list[[k]][l])-log(predation_parameters[i,2]*exp(predation_paramters[i,3]*log(animal_bodymass_average_list[[i]][j]))))/predation_parameters[i,4])^2)
+     p2=p2+1
+    }
+   }
+   ## attack rate on plants
+   attack_rate_matrix[p1,p2]=herbivory_parameters[i,1]*exp(herbivory_parameters[i,2]*log(animal_bodymass_average_list[[i]][j]))
+   p2=p2+1
+
+   ## attack rate on detritus
+   attack_rate_matrix[p1,p2]=detritivory_parameters[i,1]*exp(detritivory_parameters[i,2]*log(animal_bodymass_average_list[[i]][j]))
+
+   p1=p1+1
+  }
+ }
+ attack_rate_matrix
+}
+
 Rcompute_handling_time<-function(animal_bodymass_average_list,predation_parameters,n_trophic_group,n_carnivore,n_mass_list,pos_carnivore){
     # from Harfoot et al. 2014 - eq.40
  handling_time_matrix=matrix(0,sum(n_mass_list[pos_carnivore]),sum(n_mass_list))
@@ -256,6 +281,32 @@ Rcompute_handling_time_omni<-function(animal_bodymass_average_list,predation_par
    for (k in 1:n_trophic_group){
     for (l in 1:n_mass_list[k]){
      handling_time_matrix[p1,p2]=predation_parameters[i,4]*((predation_parameters[i,5]/animal_bodymass_average_list[[i]][j])^predation_parameters[i,6])*animal_bodymass_average_list[[k]][l]
+     p2=p2+1
+    }
+   }
+   ## handling time for plant consumption
+   handling_time_matrix[p1,p2]=herbivory_parameters[i,3]*exp(herbivory_parameters[i,4]*log(animal_bodymass_average_list[[i]][j]))
+   p2=p2+1
+
+   ## handling time for detritus consumption
+   handling_time_matrix[p1,p2]=detritivory_parameters[i,3]*exp(detritivory_parameters[i,4]*log(animal_bodymass_average_list[[i]][j]))
+
+   p1=p1+1
+  }
+ }
+ handling_time_matrix
+}
+
+Rcompute_handling_time_omni_variable_predatorpreyratio<-function(animal_bodymass_average_list,predation_parameters,herbivory_parameters,detritivory_parameters,n_trophic_group,n_mass_list){
+    # from Harfoot et al. 2014 - eq.40
+ handling_time_matrix=matrix(0,sum(n_mass_list),(sum(n_mass_list)+2))
+ p1=1
+ for (i in 1:n_trophic_group){
+  for (j in 1:n_mass_list[i]){
+   p2=1
+   for (k in 1:n_trophic_group){
+    for (l in 1:n_mass_list[k]){
+     handling_time_matrix[p1,p2]=predation_parameters[i,5]*((predation_parameters[i,6]/animal_bodymass_average_list[[i]][j])^predation_parameters[i,7])*animal_bodymass_average_list[[k]][l]
      p2=p2+1
     }
    }
@@ -685,6 +736,7 @@ Rfoodweb_omni<-function(foodweb_inputs){
  n_detritivore=glob_param[6]
  n_step_output=glob_param[7]
  growth_model=glob_param[8]
+ predation_model=glob_param[9]
 
  name_trophic_groups=foodweb_inputs$name_trophic_groups
  checktest= (length(name_trophic_groups)!=n_trophic_group)
@@ -693,7 +745,7 @@ Rfoodweb_omni<-function(foodweb_inputs){
   return(err)
  }
 
- n_param=27
+ n_param=28
  trophic_group_parameters=foodweb_inputs$trophic_group_parameters
  checktest= ((dim(trophic_group_parameters)[1]!=n_param)||(dim(trophic_group_parameters)[2]!=n_trophic_group))
  if (checktest){
@@ -763,7 +815,7 @@ Rfoodweb_omni<-function(foodweb_inputs){
  metabolic_parameters=matrix(0,n_trophic_group,3)
  mortality_parameters=matrix(0,n_trophic_group,2)
  reproduction_parameters=matrix(0,n_trophic_group,2)
- predation_parameters=matrix(0,n_trophic_group,6)
+ predation_parameters=matrix(0,n_trophic_group,7)
  herbivory_parameters=matrix(0,n_trophic_group,4)
  detritivory_parameters=matrix(0,n_trophic_group,4)
  t1=1
@@ -781,20 +833,20 @@ Rfoodweb_omni<-function(foodweb_inputs){
    reproduction_parameters[i,j]=trophic_group_parameters[(11+j),i]
   }
   ##if (trophic_type[i]==0){
-   for (j in 1:6){
+   for (j in 1:7){
     predation_parameters[i,j]=trophic_group_parameters[(13+j),i]
    ##}
    ##t1=t1+1
   }
   ##if (trophic_type[i]==1){
    for (j in 1:4){
-    herbivory_parameters[i,j]=trophic_group_parameters[(19+j),i]
+    herbivory_parameters[i,j]=trophic_group_parameters[(20+j),i]
    ##}
    ##t2=t2+1
   }
   ##if (trophic_type[i]==2){
    for (j in 1:4){
-    detritivory_parameters[i,j]=trophic_group_parameters[(23+j),i]
+    detritivory_parameters[i,j]=trophic_group_parameters[(24+j),i]
    ##}
    ##t3=t3+1
   }
@@ -903,8 +955,14 @@ Rfoodweb_omni<-function(foodweb_inputs){
 ## and thus only needs to be computed once
 ##########################################################
 
- attack_rate_matrix=Rcompute_attack_rate_omni(animal_bodymass_average_list,predation_parameters,herbivory_parameters,detritivory_parameters,n_trophic_group,n_mass_list)
- handling_time_matrix=Rcompute_handling_time_omni(animal_bodymass_average_list,predation_parameters,herbivory_parameters,detritivory_parameters,n_trophic_group,n_mass_list)
+ if (predation_model==1){
+  attack_rate_matrix=Rcompute_attack_rate_omni(animal_bodymass_average_list,predation_parameters,herbivory_parameters,detritivory_parameters,n_trophic_group,n_mass_list)
+  handling_time_matrix=Rcompute_handling_time_omni(animal_bodymass_average_list,predation_parameters,herbivory_parameters,detritivory_parameters,n_trophic_group,n_mass_list)
+}
+ else{
+  attack_rate_matrix=Rcompute_attack_rate_omni_variable_predatorpreyratio(animal_bodymass_average_list,predation_parameters,herbivory_parameters,detritivory_parameters,n_trophic_group,n_mass_list)
+  handling_time_matrix=Rcompute_handling_time_omni_variable_predatorpreyratio(animal_bodymass_average_list,predation_parameters,herbivory_parameters,detritivory_parameters,n_trophic_group,n_mass_list)
+}
 
 
 #########################
